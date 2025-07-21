@@ -100,11 +100,101 @@ public class TwitterMonitorService {
         );
     }
 
-    // 5분마다 Twitter Search API를 사용하여 트윗을 모니터링하고 처리할 메서드 시그니처
-    @Scheduled(cron = "0 */5 * * * *") // 매 5분 정각에 실행될 설정
+    // 5분마다 Twitter Search API를 사용하여 트윗 모니터링 및 처리
+    // Twitter API 호출(DM 발송)은 트랜잭션의 영향을 받지 않는다
+    @Scheduled(cron = "0 */5 * * * *") // 매 5분 정각에 실행
     @Transactional
     public void performScheduledSearch() {
-        // TODO: 트윗 검색, 필터링, DB 기록, DM 발송 로직 구현
+        // 메모리에 로딩된 키워드 목록이 비어 있으면 모니터링 건너뛰기
+        if (keywordToRecipientUserIds.isEmpty()) {
+            log.warn("No active keywords configured. Skipping scheduled search.");
+            return;
+        }
+        log.info("Performing scheduled Twitter search...");
+        // DB에서 lastTweetId 읽어오기 (트랜잭션 범위 내에서 실행)
+        // selectLastTweetId()는 결과가 없으면 null을 반환한다
+        Long currentLastTweetId = keywordMapper.selectLastTweetId();
+        // null이면 초기값 0L 사용 (SERVICE_STATE 초기 삽입 로직으로 보통 null이 되지 않음)
+        if (currentLastTweetId == null) {
+            currentLastTweetId = 0L;
+            log.warn("SERVICE_STATE record not found on search execution, using default: {}", currentLastTweetId);
+            // init()에서 insertInitialServiceState(0L)를 호출하므로 이 블록에 들어올 가능성은 낮다
+        }
+        log.debug("Loaded lastTweetId from DB: {}", currentLastTweetId);
+
+        // 모든 활성 키워드를 OR 조건으로 묶어 Search 쿼리 문자열 생성
+        String searchQueryString = keywordToRecipientUserIds.keySet().stream()
+                // 각 키워드를 따옴표로 감싸 정확한 단어 검색 유도
+                .map(keyword -> "\"" + keyword + "\"")
+                .collect(Collectors.joining(" OR "));
+
+        // 활성 키워드가 없는 경우에는 검색을 하지 않는다
+        if (searchQueryString.isEmpty()) {
+            log.warn("Generated search query is empty. Skipping search.");
+            return;
+        }
+
+        Query query = new Query(searchQueryString);
+        query.setCount(100); // 한 번에 가져올 트윗 최대 개수 (API 제한 확인)
+        // DB에서 읽어온 lastTweetId 이후의 트윗만 가져오도록 설정 (중복 방지)
+        if (currentLastTweetId > 0) {
+            query.setSinceId(currentLastTweetId);
+            log.debug("Setting Twitter Search API sinceId to {}", currentLastTweetId);
+        } else {
+            // lastTweetId가 0이면 sinceId 설정을 건너뛰고 최신 트윗부터 검색한다
+            log.debug("lastTweetId is 0, searching from the beginning of available history.");
+        }
+
+        long newLastTweetId = currentLastTweetId; // 이번 검색 후 DB에 저장할 최신 트윗 ID
+
+        try {
+            // Twitter Search API 호출
+            log.debug("Calling Twitter Search API with query: {}", query.getQuery());
+            QueryResult result = twitter.search(query);
+            List<Status> tweets = result.getTweets();
+
+            log.info("Search for '{}' returned {} tweets.", searchQueryString, tweets.size());
+
+            // 가져온 트윗 목록을 순회하며 처리 (가장 최신 트윗부터 처리하기 위해 트윗 ID 내림차순 정렬)
+            tweets.sort((t1, t2) -> Long.compare(t2.getId(), t1.getId()));
+            log.debug("Sorted tweets by ID descending. Processing...");
+
+            // 가져온 트윗 목록 순회 및 개별 트윗 처리 호출
+            for (Status status : tweets) {
+                long tweetId = status.getId();
+
+                // 검색 결과 중 가장 큰 트윗 ID를 newLastTweetId에 저장 (이번 스케줄 실행 후 DB에 저장할 값)
+                // Search API의 특성상 중요한 로직 (가져온 트윗 중 가장 큰 ID를 다음 검색 기준으로 삼기 위함)
+                if (tweetId > newLastTweetId) {
+                    newLastTweetId = tweetId;
+                }
+
+                // 단일 트윗 처리 메서드 호출
+                processSingleTweet(status, tweetId);
+            }
+
+            // DB에 업데이트된 lastTweetId 저장 (현재 트랜잭션 범위 내)
+            // 이번 검색에서 발견된 가장 큰 트윗 ID가 기존 lastTweetId보다 크다면 업데이트
+            if (newLastTweetId > currentLastTweetId) {
+                log.info("New latest tweet ID found: {}. Updating DB.", newLastTweetId);
+                keywordMapper.updateLastTweetId(newLastTweetId);
+                log.info("Successfully updated lastTweetId in DB to {}.", newLastTweetId);
+            } else {
+                log.debug("No new tweets found or processed that are newer than {}. lastTweetId remains {}.", currentLastTweetId, currentLastTweetId);
+            }
+        } catch (TwitterException e) {
+            log.error("Error during Twitter search: {}", e.getMessage(), e);
+            // Twitter API 호출 중 발생한 예외 처리
+            // @Transactional은 기본적으로 RuntimeException에 대해서만 롤백하므로,
+            // TwitterException 발생 시 DB 트랜잭션은 커밋될 수 있다
+            // 필요시 @Transactional(rollbackFor = TwitterException.class) 추가 고려
+            // TODO: Twitter API rate limit 초과 등 특정 예외에 대한 상세 처리 로직 추가
+        } catch (RuntimeException e) {
+            // DB 작업 등에서 발생한 RuntimeException은 @Transactional에 의해 롤백된다
+            log.error("RuntimeException occurred during scheduled search processing: {}", e.getMessage(), e);
+            // 예외를 다시 던져서 Spring의 @Transactional이 롤백을 수행하도록 한다
+            throw new RuntimeException("DB Transaction failed during scheduled search execution", e);
+        }
     }
 
     // 단일 트윗을 처리할 보조 메서드 시그니처
