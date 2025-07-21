@@ -69,10 +69,35 @@ public class TwitterMonitorService {
         log.info("Twitter Monitor Service shut down.");
     }
 
-    // DB에서 키워드와 수신자 정보 로딩하여 메모리 맵에 저장할 메서드 시그니처
+    // DB에서 키워드와 수신자 정보 로딩하여 메모리 맵에 저장
     // @PostConstruct 시점과 주기적 새로고침 스케줄(@Scheduled)에서 호출된다
     private void loadKeywordsAndRecipients() {
-        // TODO: DB에서 키워드 및 수신자 정보를 로딩하는 로직 구현
+        log.info("Loading active keywords and recipients from DB...");
+        // DB에서 활성화된 키워드와 매핑된 수신자 정보 조회
+        List<KeywordRecipientDTO> mappings = keywordMapper.selectActiveKeywordsWithRecipients();
+
+        // 기존 메모리 맵을 비우고 새로 채움 (DB 설정 변경이 있다면 반영하기 위함)
+        keywordToRecipientUserIds.clear();
+        keywordTextToId.clear();
+
+        mappings.forEach(mapping -> {
+            // keywordToRecipientUserIds 맵 채우기:
+            // 키워드 텍스트를 키로 하고, 해당 키워드에 연결된 수신자 User ID 리스트를 값으로 가진다
+            keywordToRecipientUserIds
+                    .computeIfAbsent(mapping.getKeywordText(), k -> new java.util.ArrayList<>()) // 키가 없으면 새 리스트 생성
+                    .add(mapping.getRecipientTwitterUserId()); // 수신자 User ID 추가
+
+            // keywordTextToId 맵 채우기:
+            // 키워드 텍스트를 키로 하고, 해당 키워드의 DB ID를 값으로 가진다 (중복 확인 시 필요)
+            keywordTextToId.put(mapping.getKeywordText(), mapping.getKeywordId());
+        });
+
+        log.info("Loaded {} active keywords. Total {} recipient mappings found.",
+                keywordTextToId.size(), mappings.size());
+        // 로딩된 키워드 목록을 로깅
+        keywordToRecipientUserIds.forEach((keyword, recipients) ->
+                log.debug("Keyword: '{}', Recipients Count: {}", keyword, recipients.size())
+        );
     }
 
     // 5분마다 Twitter Search API를 사용하여 트윗을 모니터링하고 처리할 메서드 시그니처
