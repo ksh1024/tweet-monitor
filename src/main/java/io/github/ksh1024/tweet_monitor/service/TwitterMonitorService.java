@@ -197,8 +197,106 @@ public class TwitterMonitorService {
         }
     }
 
-    // 단일 트윗을 처리할 보조 메서드 시그니처
+    // ================================================================
+    // 단일 트윗 처리 메서드 (키워드 매칭, 중복 확인, DB 기록, DM 발송)
+    // performScheduledSearch 메서드 내에서 각 트윗별로 호출됨
+    // @Transactional 메서드 내에서 호출되므로 동일 트랜잭션 범위에 포함됨
+    // ================================================================
+
     private void processSingleTweet(Status status, long tweetId) {
-        // TODO: 키워드 매칭, 중복 확인, DB 기록, DM 발송 로직 구현
+        String tweetText = status.getText();
+        String screenName = status.getUser().getScreenName();
+//        long userId = status.getUser().getId(); // 트윗 작성자 ID
+
+        log.debug("Processing single tweet [{}]: '{}' by @{}", tweetId, tweetText, screenName);
+
+        // 트윗 텍스트를 소문자로 변환하여 비교 (대소문자 무시)
+        String lowerCaseTweetText = tweetText.toLowerCase();
+
+        // 이 트윗이 어떤 키워드에 매칭되는지 확인 (다중 키워드 매칭 가능)
+        keywordToRecipientUserIds.forEach((keyword, recipientUserIds) -> {
+            // 트윗 내용이 현재 순회 중인 키워드를 포함하는지 확인
+            if (lowerCaseTweetText.contains(keyword.toLowerCase())) {
+                // 이 트윗이 이 키워드와 매칭되었음을 확인
+                log.debug("Tweet [{}] matched keyword: '{}'", tweetId, keyword);
+
+                // 매칭된 키워드 텍스트에 해당하는 키워드 ID 가져오기 (메모리 맵에서 조회)
+                Integer matchedKeywordId = keywordTextToId.get(keyword);
+
+                if (matchedKeywordId == null) {
+                    // 이런 경우는 발생하면 안 되지만, 데이터 불일치 시 방어 로직
+                    log.error("Could not find ID for matched keyword text: '{}'. Skipping processing for this keyword on tweet [{}].", keyword, tweetId);
+                    return; // 다음 키워드로 넘어감 (forEach 람다에서는 continue 역할)
+                }
+
+                // DB에서 이미 처리된 트윗인지 확인 (트윗 ID와 매칭된 키워드 ID 조합)
+                // 현재 @Transactional 메서드 내에서 실행되므로, 이전 DB 작업 결과가 반영된 상태에서 조회됨
+                boolean alreadyProcessed = keywordMapper.existsProcessedTweet(tweetId, matchedKeywordId);
+
+                if (!alreadyProcessed) {
+                    // 이 트윗-키워드 조합은 처음 발견된 경우
+                    log.info("Tweet [{}] is new for keyword '{}' (ID: {}). Recording and sending DMs.", tweetId, keyword, matchedKeywordId);
+
+                    // DB에 처리 기록 삽입 및 DM 발송 시도
+                    try {
+                        // DB에 처리 기록 삽입 (Mybatis 매퍼 호출)
+                        int insertedRows = keywordMapper.insertProcessedTweet(tweetId, matchedKeywordId);
+
+                        if (insertedRows > 0) { // 삽입 성공 (UNIQUE 제약 등에 의해 실패할 수 있음)
+                            log.info("Processed tweet [{}] recorded in DB for keyword '{}'.", tweetId, keyword);
+
+                            // 해당 키워드의 수신자 목록 가져오기 (메모리 맵에서 조회)
+                            List<Long> recipientUserIdsList = keywordToRecipientUserIds.get(keyword);
+
+                            if (recipientUserIdsList != null && !recipientUserIdsList.isEmpty()) {
+                                String tweetUrl = "https://x.com/" + status.getUser().getScreenName() + "/status/" + status.getId(); // 트윗 링크 생성
+                                String dmText = String.format(
+                                        "키워드 '%s' 포함 트윗 발견!\n작성자: @%s\n내용: %s\n링크: %s",
+                                        keyword, status.getUser().getScreenName(), status.getText(), tweetUrl
+                                );
+
+                                // Twitter API Plan에 따른 조건부 DM 발송/로깅 로직
+                                if ("free".equalsIgnoreCase(twitterApiPlan)) {
+                                    // Plan이 'free'인 경우 실제 DM 발송 대신 로깅만 함
+                                    log.info("[Simulated DM] Would send DM for tweet [{}] to recipients: {}. DM Content: {}",
+                                            tweetId, recipientUserIdsList, dmText);
+                                } else if ("basic".equalsIgnoreCase(twitterApiPlan) || "pro".equalsIgnoreCase(twitterApiPlan)) {
+                                    // Plan이 유료인 경우 실제 DM 발송 시도
+                                    log.info("[Actual DM] Attempting to send DM for tweet [{}] to recipients: {} (Plan: {})...",
+                                            tweetId, recipientUserIdsList, twitterApiPlan);
+                                    recipientUserIdsList.forEach(recipientId -> {
+                                        try {
+                                            // Twitter API를 사용하여 DM 발송 (Twitter4J twitter 객체 사용)
+                                            twitter.sendDirectMessage(recipientId, dmText);
+                                            log.info("DM sent for tweet [{}] to recipient User ID {}.", tweetId, recipientId);
+                                        } catch (TwitterException e) {
+                                            log.error("Failed to send DM for tweet [{}] to recipient User ID {}: {}", tweetId, recipientId, e.getMessage());
+                                            // DM 발송 실패 시 로깅만 하고 계속 진행 (이 예외는 @Transactional 롤백을 유발하지 않음)
+                                        }
+                                    });
+                                } else {
+                                    // 알 수 없는 Plan 값인 경우 경고 로깅
+                                    log.warn("Unknown twitter.api.plan '{}'. Skipping DM sending for tweet [{}].", twitterApiPlan, tweetId);
+                                }
+                            } else {
+                                log.warn("No active recipients found for keyword '{}'. Skipping DM sending for tweet [{}].", keyword, tweetId);
+                            }
+                        } else {
+                            log.error("Failed to record processed tweet [{}] in DB for keyword '{}'. insertProcessedTweet returned 0.", tweetId, keyword);
+                            // DB 삽입 실패 시 (UNIQUE 제약 충돌 등으로 인해) -> RuntimeException을 발생시켜 트랜잭션 롤백 유도
+                            throw new RuntimeException("Failed to insert processed tweet record for tweet " + tweetId + " and keyword " + matchedKeywordId);
+                        }
+                    } catch (Exception e) { // insertProcessedTweet 중 DB 오류 등
+                        log.error("Error during DB record or DM sending attempt for tweet [{}] and keyword '{}': {}", tweetId, keyword, e.getMessage());
+                        // RuntimeException을 다시 던져서 @Transactional에 의해 롤백되도록 한다
+                        throw new RuntimeException("Error processing tweet " + tweetId + " for keyword " + matchedKeywordId, e);
+                    }
+                } else {
+                    // 이 트윗-키워드 조합은 이미 처리된 경우
+                    log.debug("Tweet [{}] already processed for keyword '{}'. Skipping.", tweetId, keyword);
+                }
+            }
+        });
     }
+
 }
