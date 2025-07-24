@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.github.ksh1024.tweet_monitor.mapper.AdminMapper">
+    <select id="selectAllKeywordRecipientMappings" resultType="io.github.ksh1024.tweet_monitor.dto.KeywordRecipientDTO">
+        SELECT
+        k.ID AS keywordId,
+        k.KEYWORD_TEXT AS keywordText,
+        k.IS_ACTIVE AS keywordIsActive,
+        r.ID AS recipientId,
+        r.TWITTER_USER_ID AS recipientTwitterUserId,
+        r.TWITTER_SCREEN_NAME AS recipientTwitterScreenName,
+        r.IS_ACTIVE AS recipientIsActive
+        FROM KEYWORDS k
+        JOIN KEYWORD_RECIPIENT_MAP krm ON k.ID = krm.KEYWORD_ID
+        JOIN RECIPIENTS r ON krm.RECIPIENT_ID = r.ID
+    </select>
+
+    <select id="selectAllKeywords" resultType="io.github.ksh1024.tweet_monitor.dto.KeywordRecipientDTO">
+        SELECT
+        ID AS keywordId,
+        KEYWORD_TEXT AS keywordText,
+        IS_ACTIVE AS keywordIsActive
+        FROM KEYWORDS
+    </select>
+
+    <select id="selectAllRecipients" resultType="io.github.ksh1024.tweet_monitor.dto.KeywordRecipientDTO">
+        SELECT
+        ID AS recipientId,
+        TWITTER_USER_ID AS recipientTwitterUserId,
+        TWITTER_SCREEN_NAME AS recipientTwitterScreenName,
+        IS_ACTIVE AS recipientIsActive
+        FROM RECIPIENTS
+    </select>
+</mapper>
