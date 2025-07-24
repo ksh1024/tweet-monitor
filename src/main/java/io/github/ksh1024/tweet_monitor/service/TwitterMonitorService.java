@@ -68,6 +68,16 @@ public class TwitterMonitorService {
         log.info("트위터 모니터링 서비스 종료 완료.");
     }
 
+    // 주기적으로 키워드 및 수신자 정보 새로고침 (30분마다 실행)
+    // fixedRate: 메서드 시작 시점을 기준으로 주기를 설정
+    // initialDelay: 애플리케이션 시작 후 첫 실행까지의 지연 시간 (밀리초 단위). 앱 시작 5분 후 첫 새로고침
+    @Scheduled(fixedRate = 30 * 60 * 1000, initialDelay = 5 * 60 * 1000)
+    public void refreshKeywordsAndRecipientsScheduled() {
+        log.info("키워드 및 수신자 정보 주기적 새로고침 시작...");
+        loadKeywordsAndRecipients();
+        log.info("키워드 및 수신자 정보 주기적 새로고침 완료.");
+    }
+
     // DB에서 키워드와 수신자 정보 로딩하여 메모리 맵에 저장
     // @PostConstruct 시점과 주기적 새로고침 스케줄(@Scheduled)에서 호출된다
     private void loadKeywordsAndRecipients() {
