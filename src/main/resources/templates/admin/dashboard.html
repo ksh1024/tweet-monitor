@@ -71,7 +71,7 @@
         </tr>
         </thead>
         <tbody class="text-gray-600 text-sm font-light">
-        <tr th:each="keyword : ${keywords}" class="border-b border-gray-200 hover:bg-gray-100">
+        <tr th:each="keyword : ${keywords}" class="border-b border-gray-200 hover:bg-gray-100 keyword-row" th:data-id="${keyword.keywordId}" th:data-text="${keyword.keywordText}" th:data-active="${keyword.keywordIsActive}"> <!-- 'keyword-row' 클래스와 data- 속성 추가 -->
           <td th:text="${keyword.keywordId}" class="py-3 px-6 text-left whitespace-nowrap"></td>
           <td th:text="${keyword.keywordText}" class="py-3 px-6 text-left"></td>
           <td class="py-3 px-6 text-left">
@@ -79,8 +79,8 @@
             <span th:unless="${keyword.keywordIsActive}" class="bg-red-200 text-red-600 py-1 px-3 rounded-full text-xs">비활성</span>
           </td>
           <td class="py-3 px-6 text-center">
-            <button class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-3 rounded text-xs mr-2 update-keyword-btn" th:data-id="${keyword.keywordId}" th:data-text="${keyword.keywordText}" th:data-active="${keyword.keywordIsActive}">수정</button>
-            <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-xs delete-keyword-btn" th:data-id="${keyword.keywordId}">삭제</button>
+            <button class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-3 rounded text-xs mr-2 update-keyword-btn">수정</button>
+            <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-xs delete-keyword-btn">삭제</button>
           </td>
         </tr>
         <tr th:if="${keywords.isEmpty()}">
@@ -109,7 +109,7 @@
         </tr>
         </thead>
         <tbody class="text-gray-600 text-sm font-light">
-        <tr th:each="recipient : ${recipients}" class="border-b border-gray-200 hover:bg-gray-100">
+        <tr th:each="recipient : ${recipients}" class="border-b border-gray-200 hover:bg-gray-100 recipient-row" th:data-id="${recipient.recipientId}" th:data-twitter-id="${recipient.recipientTwitterUserId}" th:data-screen-name="${recipient.recipientTwitterScreenName}" th:data-description="${recipient.description}" th:data-active="${recipient.recipientIsActive}"> <!-- 'recipient-row' 클래스와 data- 속성 추가 -->
           <td th:text="${recipient.recipientId}" class="py-3 px-6 text-left whitespace-nowrap"></td>
           <td th:text="${recipient.recipientTwitterUserId}" class="py-3 px-6 text-left"></td>
           <td th:text="${recipient.recipientTwitterScreenName}" class="py-3 px-6 text-left"></td>
@@ -119,8 +119,8 @@
             <span th:unless="${recipient.recipientIsActive}" class="bg-red-200 text-red-600 py-1 px-3 rounded-full text-xs">비활성</span>
           </td>
           <td class="py-3 px-6 text-center">
-            <button class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-3 rounded text-xs mr-2 update-recipient-btn" th:data-id="${recipient.recipientId}" th:data-twitter-id="${recipient.recipientTwitterUserId}" th:data-screen-name="${recipient.recipientTwitterScreenName}" th:data-description="${recipient.description}" th:data-active="${recipient.recipientIsActive}">수정</button>
-            <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-xs delete-recipient-btn" th:data-id="${recipient.recipientId}">삭제</button>
+            <button class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-3 rounded text-xs mr-2 update-recipient-btn">수정</button>
+            <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-xs delete-recipient-btn">삭제</button>
           </td>
         </tr>
         <tr th:if="${recipients.isEmpty()}">
@@ -134,190 +134,272 @@
     </button>
   </div>
 </div>
+<div id="modalContainer" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
+  <div class="bg-white p-8 rounded-lg shadow-xl max-w-md w-full">
+    <h2 id="modalTitle" class="text-2xl font-bold mb-6 text-gray-800"></h2>
+    <form id="modalForm" class="space-y-4">
+    </form>
+    <div class="mt-6 flex justify-end space-x-3">
+      <button id="modalSubmitBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+        저장
+      </button>
+      <button id="modalCloseBtn" class="bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold py-2 px-4 rounded">
+        취소
+      </button>
+    </div>
+  </div>
+</div>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 <script>
   $(document).ready(function () {
-    $('#addKeywordBtn').on('click', function () {
-      const keywordText = prompt("추가할 키워드 텍스트를 입력하세요:");
-      const isActive = confirm("이 키워드를 활성화하시겠습니까? (확인: 활성, 취소: 비활성)");
-      if (keywordText) {
-        $.ajax({
-          url: '/admin/keywords',
-          type: 'POST',
-          contentType: 'application/json',
-          data: JSON.stringify({keywordText: keywordText, isActive: isActive}),
-          success: function (response) {
-            alert("키워드 추가 완료" + response.message);
-            location.reload(); // 페이지 새로고침하여 목록 업데이트 (나중에는 동적 업데이트로 변경)
-          },
-          error: function (xhr, status, error) {
-            alert("키워드 추가 실패: " + xhr.responseText);
-          }
-        });
+
+    const modalContainer = $('#modalContainer');
+    const modalTitle = $('#modalTitle');
+    const modalForm = $('#modalForm');
+    const modalSubmitBtn = $('#modalSubmitBtn');
+    const modalCloseBtn = $('#modalCloseBtn');
+
+    let currentAction = ''; // 'add-keyword', 'update-keyword' 등 현재 모달의 동작
+    let currentRecordId = null; // 수정 시 사용할 ID
+
+    // 모달 열기 함수
+    function openModal(title, fieldsHtml, actionType, recordId = null) {
+      modalTitle.text(title);
+      modalForm.html(fieldsHtml);
+      modalSubmitBtn.text(recordId ? '수정' : '추가'); // 버튼 텍스트 변경
+      modalContainer.removeClass('hidden').addClass('flex'); // 모달 보이게
+      currentAction = actionType;
+      currentRecordId = recordId;
+    }
+
+    // 모달 닫기 함수
+    modalCloseBtn.on('click', function() {
+      modalContainer.removeClass('flex').addClass('hidden'); // 모달 숨기기
+      modalForm.empty(); // 폼 필드 초기화
+      currentAction = '';
+      currentRecordId = null;
+    });
+
+    // AJAX 요청 후 페이지 새로고침 대신 모달 닫고 알림 메시지 표시
+    function handleAjaxResponse(response, actionName) {
+      if (response.status === 'success') {
+        alert(actionName + " 완료: " + response.message);
+        modalCloseBtn.click(); // 모달 닫기
+        location.reload(); // 페이지 새로고침 (나중에 동적 업데이트로 변경 가능)
+      } else {
+        alert(actionName + " 실패: " + response.message);
       }
+    }
+
+    $('#addKeywordBtn').on('click', function () {
+      const fields = `
+                <label class="block text-gray-700 text-sm font-bold mb-2">키워드 텍스트:</label>
+                <input type="text" id="keywordText" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                <label class="block mt-4">
+                    <input type="checkbox" id="isActive" class="mr-2 leading-tight">
+                    <span class="text-sm">활성화</span>
+                </label>
+            `;
+      openModal("새 키워드 추가", fields, "add-keyword");
+      $('#isActive').prop('checked', true); // 추가 시 기본 활성
     });
 
     $('#addRecipientBtn').on('click', function () {
-      const twitterUserId = prompt("추가할 수신자 트위터 User ID를 입력하세요:");
-      const twitterScreenName = prompt("추가할 수신자 트위터 계정명 (@제외)을 입력하세요:");
-      const description = prompt("수신자에 대한 메모를 입력하세요 (선택 사항):");
-      const isActive = confirm("이 수신자를 활성화하시겠습니까? (확인: 활성, 취소: 비활성)");
-
-      if (twitterUserId && twitterScreenName) {
-        $.ajax({
-          url: '/admin/recipients',
-          type: 'POST',
-          contentType: 'application/json',
-          data: JSON.stringify({
-            twitterUserId: parseInt(twitterUserId), // 숫자로 파싱
-            twitterScreenName: twitterScreenName,
-            description: description,
-            isActive: isActive
-          }),
-          success: function (response) {
-            alert("수신자 추가 완료" + response.message);
-            location.reload();
-          },
-          error: function (xhr, status, error) {
-            alert("수신자 추가 실패: " + xhr.responseText);
-          }
-        });
-      }
+      const fields = `
+                <label class="block text-gray-700 text-sm font-bold mb-2">트위터 User ID:</label>
+                <input type="number" id="twitterUserId" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                <label class="block text-gray-700 text-sm font-bold mb-2 mt-4">트위터 계정명 (@제외):</label>
+                <input type="text" id="twitterScreenName" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                <label class="block text-gray-700 text-sm font-bold mb-2 mt-4">메모 (선택 사항):</label>
+                <input type="text" id="description" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                <label class="block mt-4">
+                    <input type="checkbox" id="isActive" class="mr-2 leading-tight">
+                    <span class="text-sm">활성화</span>
+                </label>
+            `;
+      openModal("새 수신자 추가", fields, "add-recipient");
+      $('#isActive').prop('checked', true); // 추가 시 기본 활성
     });
 
     $('#addMappingBtn').on('click', function () {
-      const keywordId = prompt("매핑할 키워드의 ID를 입력하세요:");
-      const recipientId = prompt("매핑할 수신자의 ID를 입력하세요:");
-      if (keywordId && recipientId) {
+      // .keyword-row 클래스를 가진 모든 <tr> 요소에서 data-id와 data-text를 가져옴
+      const keywordOptions = Array.from(document.querySelectorAll('.keyword-row')).map(row =>
+              `<option value="${row.dataset.id}">${row.dataset.text}</option>`
+      ).join('');
+      // .recipient-row 클래스를 가진 모든 <tr> 요소에서 data-id와 data-screen-name을 가져옴
+      const recipientOptions = Array.from(document.querySelectorAll('.recipient-row')).map(row =>
+              `<option value="${row.dataset.id}">${row.dataset.screenName}</option>`
+      ).join('');
+
+      const fields = `
+                <label class="block text-gray-700 text-sm font-bold mb-2">키워드 선택:</label>
+                <select id="keywordId" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                    <option value="">키워드를 선택하세요</option>
+                    ${keywordOptions}
+                </select>
+                <label class="block text-gray-700 text-sm font-bold mb-2 mt-4">수신자 선택:</label>
+                <select id="recipientId" class="shadow border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" required>
+                    <option value="">수신자를 선택하세요</option>
+                    ${recipientOptions}
+                </select>
+            `;
+      openModal("새 매핑 추가", fields, "add-mapping");
+    });
+
+    $('.update-keyword-btn').on('click', function() {
+      const row = $(this).closest('tr');
+      const id = row.data('id');
+      const currentText = row.data('text');
+      const currentActive = row.data('active');
+
+      const fields = `
+                <label class="block text-gray-700 text-sm font-bold mb-2">키워드 ID:</label>
+                <input type="text" id="keywordIdDisplay" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-gray-200" value="${id}" readonly>
+                <label class="block text-gray-700 text-sm font-bold mb-2 mt-4">키워드 텍스트:</label>
+                <input type="text" id="keywordText" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="${currentText}" required>
+                <label class="block mt-4">
+                    <input type="checkbox" id="isActive" class="mr-2 leading-tight">
+                    <span class="text-sm">활성화</span>
+                </label>
+            `;
+      openModal("키워드 수정", fields, "update-keyword", id);
+      $('#isActive').prop('checked', currentActive);
+    });
+
+    $('.update-recipient-btn').on('click', function() {
+      const row = $(this).closest('tr');
+      const id = row.data('id');
+      const currentTwitterId = row.data('twitter-id');
+      const currentScreenName = row.data('screen-name');
+      const currentDescription = row.data('description');
+      const currentActive = row.data('active');
+
+      const fields = `
+                <label class="block text-gray-700 text-sm font-bold mb-2">수신자 ID:</label>
+                <input type="text" id="recipientIdDisplay" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline bg-gray-200" value="${id}" readonly>
+                <label class="block text-gray-700 text-sm font-bold mb-2 mt-4">트위터 User ID:</label>
+                <input type="number" id="twitterUserId" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="${currentTwitterId}" required>
+                <label class="block text-gray-700 text-sm font-bold mb-2 mt-4">트위터 계정명 (@제외):</label>
+                <input type="text" id="twitterScreenName" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="${currentScreenName}" required>
+                <label class="block text-gray-700 text-sm font-bold mb-2 mt-4">메모 (선택 사항):</label>
+                <input type="text" id="description" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline" value="${currentDescription || ''}">
+                <label class="block mt-4">
+                    <input type="checkbox" id="isActive" class="mr-2 leading-tight">
+                    <span class="text-sm">활성화</span>
+                </label>
+            `;
+      openModal("수신자 수정", fields, "update-recipient", id);
+      $('#isActive').prop('checked', currentActive);
+    });
+
+    $('.delete-keyword-btn').on('click', function() {
+      const id = $(this).data('id');
+      if (confirm("정말로 키워드 ID " + id + "를 삭제하시겠습니까?")) {
         $.ajax({
-          url: '/admin/mappings',
-          type: 'POST',
-          contentType: 'application/json',
-          data: JSON.stringify({keywordId: parseInt(keywordId), recipientId: parseInt(recipientId)}),
-          success: function (response) {
-            alert("매핑 추가 완료" + response.message);
-            location.reload();
+          url: '/admin/keywords/' + id,
+          type: 'DELETE',
+          success: function(response) {
+            handleAjaxResponse(response, "키워드 삭제");
           },
-          error: function (xhr, status, error) {
-            alert("매핑 추가 실패: " + xhr.responseText);
+          error: function(xhr) {
+            alert("키워드 삭제 실패: " + xhr.responseText);
           }
         });
       }
     });
-  });
 
-  // --- 수정 버튼 클릭 이벤트 (임시 로직 - prompt 사용) ---
-  $('.update-keyword-btn').on('click', function() {
-    const id = $(this).data('id');
-    const currentText = $(this).data('text');
-    const currentActive = $(this).data('active');
-    const newText = prompt("키워드 텍스트를 수정하세요:", currentText);
-    const newActive = confirm(`현재 ${currentActive ? '활성' : '비활성'} 상태입니다.\n활성 상태로 변경하시려면 '확인', 비활성 상태로 유지하시려면 '취소'를 누르세요.`);
+    $('.delete-recipient-btn').on('click', function() {
+      const id = $(this).data('id');
+      if (confirm("정말로 수신자 ID " + id + "를 삭제하시겠습니까?")) {
+        $.ajax({
+          url: '/admin/recipients/' + id,
+          type: 'DELETE',
+          success: function(response) {
+            handleAjaxResponse(response, "수신자 삭제");
+          },
+          error: function(xhr) {
+            alert("수신자 삭제 실패: " + xhr.responseText);
+          }
+        });
+      }
+    });
 
-    if (newText) {
+    $('.delete-mapping-btn').on('click', function() {
+      const keywordId = $(this).data('keyword-id');
+      const recipientId = $(this).data('recipient-id');
+      if (confirm("정말로 키워드 ID " + keywordId + "와 수신자 ID " + recipientId + "의 매핑을 삭제하시겠습니까?")) {
+        $.ajax({
+          url: '/admin/mappings/' + keywordId + '/' + recipientId,
+          type: 'DELETE',
+          success: function(response) {
+            handleAjaxResponse(response, "매핑 삭제");
+          },
+          error: function(xhr) {
+            alert("매핑 삭제 실패: " + xhr.responseText);
+          }
+        });
+      }
+    });
+
+    modalSubmitBtn.on('click', function() {
+      let data = {};
+      let url = '';
+      let type = '';
+      let actionName = '';
+
+      if (currentAction === 'add-keyword' || currentAction === 'update-keyword') {
+        const keywordText = $('#keywordText').val();
+        const isActive = $('#isActive').is(':checked');
+        if (!keywordText) { alert('키워드 텍스트는 필수입니다.'); return; }
+        data = { keywordText: keywordText, isActive: isActive };
+        url = '/admin/keywords';
+        type = currentAction === 'add-keyword' ? 'POST' : 'PUT';
+        actionName = currentAction === 'add-keyword' ? '키워드 추가' : '키워드 수정';
+        if (currentAction === 'update-keyword') {
+          data.id = currentRecordId;
+          url += '/' + currentRecordId;
+        }
+      } else if (currentAction === 'add-recipient' || currentAction === 'update-recipient') {
+        const twitterUserId = $('#twitterUserId').val();
+        const twitterScreenName = $('#twitterScreenName').val();
+        const description = $('#description').val();
+        const isActive = $('#isActive').is(':checked');
+        if (!twitterUserId || !twitterScreenName) { alert('트위터 User ID와 계정명은 필수입니다.'); return; }
+        data = {
+          twitterUserId: parseInt(twitterUserId),
+          twitterScreenName: twitterScreenName,
+          description: description,
+          isActive: isActive
+        };
+        url = '/admin/recipients';
+        type = currentAction === 'add-recipient' ? 'POST' : 'PUT';
+        actionName = currentAction === 'add-recipient' ? '수신자 추가' : '수신자 수정';
+        if (currentAction === 'update-recipient') {
+          data.id = currentRecordId;
+          url += '/' + currentRecordId;
+        }
+      } else if (currentAction === 'add-mapping') {
+        const keywordId = $('#keywordId').val();
+        const recipientId = $('#recipientId').val();
+        if (!keywordId || !recipientId) { alert('키워드와 수신자를 선택하세요.'); return; }
+        data = { keywordId: parseInt(keywordId), recipientId: parseInt(recipientId) };
+        url = '/admin/mappings';
+        type = 'POST';
+        actionName = '매핑 추가';
+      }
+
       $.ajax({
-        url: '/admin/keywords/' + id,
-        type: 'PUT',
+        url: url,
+        type: type,
         contentType: 'application/json',
-        data: JSON.stringify({ id: id, keywordText: newText, isActive: newActive }),
+        data: JSON.stringify(data),
         success: function(response) {
-          alert("키워드 수정 완료" + response.message);
-          location.reload();
+          handleAjaxResponse(response, actionName);
         },
-        error: function(xhr, status, error) {
-          alert("키워드 수정 실패: " + xhr.responseText);
+        error: function(xhr) {
+          alert(actionName + " 실패: " + xhr.responseText);
         }
       });
-    }
+    });
   });
-
-  $('.update-recipient-btn').on('click', function() {
-    const id = $(this).data('id');
-    const currentTwitterId = $(this).data('twitter-id');
-    const currentScreenName = $(this).data('screen-name');
-    const currentDescription = $(this).data('description');
-    const currentActive = $(this).data('active');
-
-    const newTwitterId = prompt("수신자 트위터 User ID를 수정하세요:", currentTwitterId);
-    const newScreenName = prompt("수신자 트위터 계정명 (@제외)을 수정하세요:", currentScreenName);
-    const newDescription = prompt("수신자에 대한 메모를 수정하세요 (선택 사항):", currentDescription);
-    const newActive = confirm(`현재 ${currentActive ? '활성' : '비활성'} 상태입니다.\n활성 상태로 변경하시려면 '확인', 비활성 상태로 유지하시려면 '취소'를 누르세요.`);
-
-    if (newTwitterId && newScreenName) {
-      $.ajax({
-        url: '/admin/recipients/' + id,
-        type: 'PUT',
-        contentType: 'application/json',
-        data: JSON.stringify({
-          id: id,
-          twitterUserId: parseInt(newTwitterId),
-          twitterScreenName: newScreenName,
-          description: newDescription,
-          isActive: newActive
-        }),
-        success: function(response) {
-          alert("수신자 수정 완료" + response.message);
-          location.reload();
-        },
-        error: function(xhr, status, error) {
-          alert("수신자 수정 실패: " + xhr.responseText);
-        }
-      });
-    }
-  });
-  // --- 수정 버튼 클릭 이벤트 끝 ---
-
-  // --- 삭제 버튼 클릭 이벤트 (임시 로직 - confirm 사용) ---
-  $('.delete-keyword-btn').on('click', function() {
-    const id = $(this).data('id');
-    if (confirm("정말로 키워드 ID " + id + "를 삭제하시겠습니까?")) {
-      $.ajax({
-        url: '/admin/keywords/' + id,
-        type: 'DELETE',
-        success: function(response) {
-          alert("키워드 삭제 완료" + response.message);
-          location.reload();
-        },
-        error: function(xhr, status, error) {
-          alert("키워드 삭제 실패: " + xhr.responseText);
-        }
-      });
-    }
-  });
-
-  $('.delete-recipient-btn').on('click', function() {
-    const id = $(this).data('id');
-    if (confirm("정말로 수신자 ID " + id + "를 삭제하시겠습니까?")) {
-      $.ajax({
-        url: '/admin/recipients/' + id,
-        type: 'DELETE',
-        success: function(response) {
-          alert("수신자 삭제 완료" + response.message);
-          location.reload();
-        },
-        error: function(xhr, status, error) {
-          alert("수신자 삭제 실패: " + xhr.responseText);
-        }
-      });
-    }
-  });
-
-  $('.delete-mapping-btn').on('click', function() {
-    const keywordId = $(this).data('keyword-id');
-    const recipientId = $(this).data('recipient-id');
-    if (confirm("정말로 키워드 ID " + keywordId + "와 수신자 ID " + recipientId + "의 매핑을 삭제하시겠습니까?")) {
-      $.ajax({
-        url: '/admin/mappings/' + keywordId + '/' + recipientId,
-        type: 'DELETE',
-        success: function(response) {
-          alert("매핑 삭제 완료" + response.message);
-          location.reload();
-        },
-        error: function(xhr, status, error) {
-          alert("매핑 삭제 실패: " + xhr.responseText);
-        }
-      });
-    }
-  });
-
 </script>
