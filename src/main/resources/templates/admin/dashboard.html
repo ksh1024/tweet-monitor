@@ -5,14 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>트위터 모니터링 관리자 페이지</title>
   <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 </head>
 <body class="bg-gray-100 font-sans leading-normal tracking-normal">
 <div class="container mx-auto p-4">
   <h1 class="text-3xl font-bold text-gray-800 mb-6">트위터 모니터링 관리자 대시보드</h1>
   <div class="bg-white shadow-md rounded-lg p-6 mb-8">
     <h2 class="text-2xl font-semibold text-gray-700 mb-4">키워드별 DM 수신자 목록</h2>
-    <div th:if="${groupedMappings.empty}" class="text-gray-500 mb-4">매핑된 키워드-수신자 정보가 없습니다.</div>
+    <div th:if="${groupedMappings.isEmpty()}" class="text-gray-500 mb-4">매핑된 키워드-수신자 정보가 없습니다.</div>
     <div th:each="entry : ${groupedMappings}" class="mb-6 border border-gray-200 rounded-lg p-4">
       <h3 class="text-xl font-semibold text-gray-800 mb-2">
         <span th:text="${entry.key}" class="text-blue-600">키워드 텍스트</span>
@@ -84,7 +83,7 @@
             <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-xs delete-keyword-btn" th:data-id="${keyword.keywordId}">삭제</button>
           </td>
         </tr>
-        <tr th:if="${keywords.empty}">
+        <tr th:if="${keywords.isEmpty()}">
           <td colspan="4" class="py-3 px-6 text-center text-gray-500">등록된 키워드가 없습니다.</td>
         </tr>
         </tbody>
@@ -124,7 +123,7 @@
             <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-xs delete-recipient-btn" th:data-id="${recipient.recipientId}">삭제</button>
           </td>
         </tr>
-        <tr th:if="${recipients.empty}">
+        <tr th:if="${recipients.isEmpty()}">
           <td colspan="5" class="py-3 px-6 text-center text-gray-500">등록된 수신자 계정이 없습니다.</td>
         </tr>
         </tbody>
@@ -135,8 +134,7 @@
     </button>
   </div>
 </div>
-</body>
-</html>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
 <script>
   $(document).ready(function () {
     $('#addKeywordBtn').on('click', function () {
@@ -214,7 +212,7 @@
     const currentText = $(this).data('text');
     const currentActive = $(this).data('active');
     const newText = prompt("키워드 텍스트를 수정하세요:", currentText);
-    const newActive = confirm("이 키워드를 활성화하시겠습니까? (확인: 활성, 취소: 비활성)", currentActive);
+    const newActive = confirm(`현재 ${currentActive ? '활성' : '비활성'} 상태입니다.\n활성 상태로 변경하시려면 '확인', 비활성 상태로 유지하시려면 '취소'를 누르세요.`);
 
     if (newText) {
       $.ajax({
@@ -243,7 +241,7 @@
     const newTwitterId = prompt("수신자 트위터 User ID를 수정하세요:", currentTwitterId);
     const newScreenName = prompt("수신자 트위터 계정명 (@제외)을 수정하세요:", currentScreenName);
     const newDescription = prompt("수신자에 대한 메모를 수정하세요 (선택 사항):", currentDescription);
-    const newActive = confirm("이 수신자를 활성화하시겠습니까? (확인: 활성, 취소: 비활성)", currentActive);
+    const newActive = confirm(`현재 ${currentActive ? '활성' : '비활성'} 상태입니다.\n활성 상태로 변경하시려면 '확인', 비활성 상태로 유지하시려면 '취소'를 누르세요.`);
 
     if (newTwitterId && newScreenName) {
       $.ajax({
