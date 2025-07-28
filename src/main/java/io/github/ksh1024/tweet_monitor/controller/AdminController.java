@@ -18,7 +18,7 @@ public class AdminController {
     /**
      * 관리자 페이지
      */
-    @GetMapping("/")
+    @GetMapping({"", "/"})
     public String adminDashboard(Model model) {
         log.info("[AdminController] 관리자 대시보드 페이지 접근 시도");
         model.addAttribute("groupedMappings", adminService.getGroupedKeywordRecipientMappings());
