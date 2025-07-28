@@ -9,7 +9,8 @@
         r.ID AS recipientId,
         r.TWITTER_USER_ID AS recipientTwitterUserId,
         r.TWITTER_SCREEN_NAME AS recipientTwitterScreenName,
-        r.IS_ACTIVE AS recipientIsActive
+        r.IS_ACTIVE AS recipientIsActive,
+        r.DESCRIPTION AS description
         FROM KEYWORDS k
         JOIN KEYWORD_RECIPIENT_MAP krm ON k.ID = krm.KEYWORD_ID
         JOIN RECIPIENTS r ON krm.RECIPIENT_ID = r.ID
@@ -28,7 +29,8 @@
         ID AS recipientId,
         TWITTER_USER_ID AS recipientTwitterUserId,
         TWITTER_SCREEN_NAME AS recipientTwitterScreenName,
-        IS_ACTIVE AS recipientIsActive
+        IS_ACTIVE AS recipientIsActive,
+        DESCRIPTION AS description
         FROM RECIPIENTS
     </select>
 

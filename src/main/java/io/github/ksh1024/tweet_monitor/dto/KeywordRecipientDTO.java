@@ -11,4 +11,5 @@ public class KeywordRecipientDTO {
     private long recipientTwitterUserId;
     private String recipientTwitterScreenName; // @사용자명
     private boolean recipientIsActive;
+    private String description;
 }
