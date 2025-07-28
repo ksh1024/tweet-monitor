@@ -4,6 +4,7 @@ import lombok.*;
 
 @Data
 public class KeywordRequest {
+    private Integer id;
     private String keywordText;
     private boolean isActive;
 }

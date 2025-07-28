@@ -27,4 +27,19 @@ public interface AdminMapper {
 
     // 키워드-수신자 매핑 추가
     int insertKeywordRecipientMapping(@Param("keywordId") int keywordId, @Param("recipientId") int recipientId);
+
+    // 키워드 수정
+    int updateKeyword(KeywordRequest keywordRequest);
+
+    // 수신자 수정
+    int updateRecipient(RecipientRequest recipientRequest);
+
+    // 키워드 삭제
+    int deleteKeyword(@Param("id") int id);
+
+    // 수신자 삭제
+    int deleteRecipient(@Param("id") int id);
+
+    // 키워드-수신자 매핑 삭제
+    int deleteKeywordRecipientMapping(@Param("keywordId") int keywordId, @Param("recipientId") int recipientId);
 }

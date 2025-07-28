@@ -46,4 +46,39 @@
         INSERT INTO KEYWORD_RECIPIENT_MAP (KEYWORD_ID, RECIPIENT_ID)
         VALUES (#{keywordId}, #{recipientId})
     </insert>
+
+    <update id="updateKeyword">
+        UPDATE KEYWORDS
+        SET
+            KEYWORD_TEXT = #{keywordText},
+            IS_ACTIVE = #{isActive},
+            UPDATED_AT = CURRENT_TIMESTAMP
+        WHERE ID = #{id}
+    </update>
+
+    <update id="updateRecipient">
+        UPDATE RECIPIENTS
+        SET
+            TWITTER_USER_ID = #{twitterUserId},
+            TWITTER_SCREEN_NAME = #{twitterScreenName},
+            DESCRIPTION = #{description},
+            IS_ACTIVE = #{isActive},
+            UPDATED_AT = CURRENT_TIMESTAMP
+        WHERE ID = #{id}
+    </update>
+
+    <delete id="deleteKeyword">
+        DELETE FROM KEYWORDS
+        WHERE ID = #{id}
+    </delete>
+
+    <delete id="deleteRecipient">
+        DELETE FROM RECIPIENTS
+        WHERE ID = #{id}
+    </delete>
+
+    <delete id="deleteKeywordRecipientMapping">
+        DELETE FROM KEYWORD_RECIPIENT_MAP
+        WHERE KEYWORD_ID = #{keywordId} AND RECIPIENT_ID = #{recipientId}
+    </delete>
 </mapper>

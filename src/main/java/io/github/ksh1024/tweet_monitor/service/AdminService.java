@@ -92,4 +92,85 @@ public class AdminService {
         return result;
     }
 
+    // 키워드 수정
+    @Transactional
+    public int updateKeyword(KeywordRequest request) {
+        log.info("[AdminService] 키워드 ID {} 수정 시도: {}", request.getId(), request.getKeywordText());
+        int result = adminMapper.updateKeyword(request);
+        if (result > 0) {
+            log.info("[AdminService] 키워드 ID {} 수정 성공.", request.getId());
+            twitterMonitorService.loadKeywordsAndRecipients(); // 변경사항 즉시 반영
+        } else {
+            log.warn("[AdminService] 키워드 ID {} 수정 실패 (해당 키워드 없음 또는 DB 오류).", request.getId());
+        }
+        return result;
+    }
+
+    // 수신자 수정
+    @Transactional
+    public int updateRecipient(RecipientRequest request) {
+        log.info("[AdminService] 수신자 ID {} 수정 시도: {} (@{})", request.getId(), request.getTwitterUserId(), request.getTwitterScreenName());
+        int result = adminMapper.updateRecipient(request);
+        if (result > 0) {
+            log.info("[AdminService] 수신자 ID {} 수정 성공.", request.getId());
+            twitterMonitorService.loadKeywordsAndRecipients(); // 변경사항 즉시 반영
+        } else {
+            log.warn("[AdminService] 수신자 ID {} 수정 실패 (해당 수신자 없음 또는 DB 오류).", request.getId());
+        }
+        return result;
+    }
+
+    // 키워드 삭제
+    @Transactional
+    public int deleteKeyword(int id) {
+        log.info("[AdminService] 키워드 ID {} 삭제 시도.", id);
+        try {
+            int result = adminMapper.deleteKeyword(id);
+            if (result > 0) {
+                log.info("[AdminService] 키워드 ID {} 삭제 성공.", id);
+                twitterMonitorService.loadKeywordsAndRecipients(); // 변경사항 즉시 반영
+            } else {
+                log.warn("[AdminService] 키워드 ID {} 삭제 실패 (해당 키워드 없음 또는 DB 오류).", id);
+            }
+            return result;
+        } catch (Exception e) {
+            log.error("[AdminService] 키워드 ID {} 삭제 중 오류 발생: {}", id, e.getMessage(), e);
+            // 트랜잭션 롤백을 위해 런타임 예외 발생
+            throw new RuntimeException("키워드 ID " + id + " 삭제 중 DB 오류 발생. 관련 기록/매핑이 남아 있을 수 있음.", e);
+        }
+    }
+
+    // 수신자 삭제
+    @Transactional
+    public int deleteRecipient(int id) {
+        log.info("[AdminService] 수신자 ID {} 삭제 시도.", id);
+        try {
+            int result = adminMapper.deleteRecipient(id);
+            if (result > 0) {
+                log.info("[AdminService] 수신자 ID {} 삭제 성공.", id);
+                twitterMonitorService.loadKeywordsAndRecipients(); // 변경사항 즉시 반영
+            } else {
+                log.warn("[AdminService] 수신자 ID {} 삭제 실패 (해당 수신자 없음 또는 DB 오류).", id);
+            }
+            return result;
+        } catch (Exception e) {
+            log.error("[AdminService] 수신자 ID {} 삭제 중 오류 발생: {}", id, e.getMessage(), e);
+            throw new RuntimeException("수신자 ID " + id + " 삭제 중 DB 오류 발생. 관련 매핑이 남아 있을 수 있음.", e);
+        }
+    }
+
+    // 키워드-수신자 매핑 삭제
+    @Transactional
+    public int deleteKeywordRecipientMapping(int keywordId, int recipientId) {
+        log.info("[AdminService] 키워드 ID {}와 수신자 ID {} 매핑 삭제 시도.", keywordId, recipientId);
+        int result = adminMapper.deleteKeywordRecipientMapping(keywordId, recipientId);
+        if (result > 0) {
+            log.info("[AdminService] 키워드 ID {}와 수신자 ID {} 매핑 성공적으로 삭제.", keywordId, recipientId);
+            twitterMonitorService.loadKeywordsAndRecipients(); // 변경사항 즉시 반영
+        } else {
+            log.warn("[AdminService] 키워드 ID {}와 수신자 ID {} 매핑 삭제 실패 (매핑 없음 또는 DB 오류).", keywordId, recipientId);
+        }
+        return result;
+    }
+
 }

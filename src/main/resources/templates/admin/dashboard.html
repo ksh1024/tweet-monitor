@@ -28,6 +28,7 @@
             <th class="py-2 px-4 text-left">계정명</th>
             <th class="py-2 px-4 text-left">메모</th>
             <th class="py-2 px-4 text-left">활성 여부</th>
+            <th class="py-2 px-4 text-center">액션</th>
           </tr>
           </thead>
           <tbody class="text-gray-600 text-sm font-light">
@@ -40,6 +41,13 @@
             <td class="py-2 px-4 text-left">
               <span th:if="${recipientMapping.recipientIsActive}" class="bg-green-200 text-green-600 py-1 px-2 rounded-full text-xs">활성</span>
               <span th:unless="${recipientMapping.recipientIsActive}" class="bg-red-200 text-red-600 py-1 px-2 rounded-full text-xs">비활성</span>
+            </td>
+            <td class="py-2 px-4 text-center">
+              <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-xs delete-mapping-btn"
+                      th:data-keyword-id="${entry.value[0].keywordId}"
+                      th:data-recipient-id="${recipientMapping.recipientId}">
+                삭제
+              </button>
             </td>
           </tr>
           </tbody>
@@ -72,8 +80,8 @@
             <span th:unless="${keyword.keywordIsActive}" class="bg-red-200 text-red-600 py-1 px-3 rounded-full text-xs">비활성</span>
           </td>
           <td class="py-3 px-6 text-center">
-            <button class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-3 rounded text-xs mr-2">수정</button>
-            <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-xs">삭제</button>
+            <button class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-3 rounded text-xs mr-2 update-keyword-btn" th:data-id="${keyword.keywordId}" th:data-text="${keyword.keywordText}" th:data-active="${keyword.keywordIsActive}">수정</button>
+            <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-xs delete-keyword-btn" th:data-id="${keyword.keywordId}">삭제</button>
           </td>
         </tr>
         <tr th:if="${keywords.empty}">
@@ -112,8 +120,8 @@
             <span th:unless="${recipient.recipientIsActive}" class="bg-red-200 text-red-600 py-1 px-3 rounded-full text-xs">비활성</span>
           </td>
           <td class="py-3 px-6 text-center">
-            <button class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-3 rounded text-xs mr-2">수정</button>
-            <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-xs">삭제</button>
+            <button class="bg-yellow-500 hover:bg-yellow-700 text-white font-bold py-1 px-3 rounded text-xs mr-2 update-recipient-btn" th:data-id="${recipient.recipientId}" th:data-twitter-id="${recipient.recipientTwitterUserId}" th:data-screen-name="${recipient.recipientTwitterScreenName}" th:data-description="${recipient.description}" th:data-active="${recipient.recipientIsActive}">수정</button>
+            <button class="bg-red-500 hover:bg-red-700 text-white font-bold py-1 px-3 rounded text-xs delete-recipient-btn" th:data-id="${recipient.recipientId}">삭제</button>
           </td>
         </tr>
         <tr th:if="${recipients.empty}">
@@ -199,4 +207,119 @@
       }
     });
   });
+
+  // --- 수정 버튼 클릭 이벤트 (임시 로직 - prompt 사용) ---
+  $('.update-keyword-btn').on('click', function() {
+    const id = $(this).data('id');
+    const currentText = $(this).data('text');
+    const currentActive = $(this).data('active');
+    const newText = prompt("키워드 텍스트를 수정하세요:", currentText);
+    const newActive = confirm("이 키워드를 활성화하시겠습니까? (확인: 활성, 취소: 비활성)", currentActive);
+
+    if (newText) {
+      $.ajax({
+        url: '/admin/keywords/' + id,
+        type: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify({ id: id, keywordText: newText, isActive: newActive }),
+        success: function(response) {
+          alert("키워드 수정 완료" + response.message);
+          location.reload();
+        },
+        error: function(xhr, status, error) {
+          alert("키워드 수정 실패: " + xhr.responseText);
+        }
+      });
+    }
+  });
+
+  $('.update-recipient-btn').on('click', function() {
+    const id = $(this).data('id');
+    const currentTwitterId = $(this).data('twitter-id');
+    const currentScreenName = $(this).data('screen-name');
+    const currentDescription = $(this).data('description');
+    const currentActive = $(this).data('active');
+
+    const newTwitterId = prompt("수신자 트위터 User ID를 수정하세요:", currentTwitterId);
+    const newScreenName = prompt("수신자 트위터 계정명 (@제외)을 수정하세요:", currentScreenName);
+    const newDescription = prompt("수신자에 대한 메모를 수정하세요 (선택 사항):", currentDescription);
+    const newActive = confirm("이 수신자를 활성화하시겠습니까? (확인: 활성, 취소: 비활성)", currentActive);
+
+    if (newTwitterId && newScreenName) {
+      $.ajax({
+        url: '/admin/recipients/' + id,
+        type: 'PUT',
+        contentType: 'application/json',
+        data: JSON.stringify({
+          id: id,
+          twitterUserId: parseInt(newTwitterId),
+          twitterScreenName: newScreenName,
+          description: newDescription,
+          isActive: newActive
+        }),
+        success: function(response) {
+          alert("수신자 수정 완료" + response.message);
+          location.reload();
+        },
+        error: function(xhr, status, error) {
+          alert("수신자 수정 실패: " + xhr.responseText);
+        }
+      });
+    }
+  });
+  // --- 수정 버튼 클릭 이벤트 끝 ---
+
+  // --- 삭제 버튼 클릭 이벤트 (임시 로직 - confirm 사용) ---
+  $('.delete-keyword-btn').on('click', function() {
+    const id = $(this).data('id');
+    if (confirm("정말로 키워드 ID " + id + "를 삭제하시겠습니까?")) {
+      $.ajax({
+        url: '/admin/keywords/' + id,
+        type: 'DELETE',
+        success: function(response) {
+          alert("키워드 삭제 완료" + response.message);
+          location.reload();
+        },
+        error: function(xhr, status, error) {
+          alert("키워드 삭제 실패: " + xhr.responseText);
+        }
+      });
+    }
+  });
+
+  $('.delete-recipient-btn').on('click', function() {
+    const id = $(this).data('id');
+    if (confirm("정말로 수신자 ID " + id + "를 삭제하시겠습니까?")) {
+      $.ajax({
+        url: '/admin/recipients/' + id,
+        type: 'DELETE',
+        success: function(response) {
+          alert("수신자 삭제 완료" + response.message);
+          location.reload();
+        },
+        error: function(xhr, status, error) {
+          alert("수신자 삭제 실패: " + xhr.responseText);
+        }
+      });
+    }
+  });
+
+  $('.delete-mapping-btn').on('click', function() {
+    const keywordId = $(this).data('keyword-id');
+    const recipientId = $(this).data('recipient-id');
+    if (confirm("정말로 키워드 ID " + keywordId + "와 수신자 ID " + recipientId + "의 매핑을 삭제하시겠습니까?")) {
+      $.ajax({
+        url: '/admin/mappings/' + keywordId + '/' + recipientId,
+        type: 'DELETE',
+        success: function(response) {
+          alert("매핑 삭제 완료" + response.message);
+          location.reload();
+        },
+        error: function(xhr, status, error) {
+          alert("매핑 삭제 실패: " + xhr.responseText);
+        }
+      });
+    }
+  });
+
 </script>

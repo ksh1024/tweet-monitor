@@ -4,6 +4,7 @@ import lombok.Data;
 
 @Data
 public class RecipientRequest {
+    private Integer id;
     private long twitterUserId;
     private String twitterScreenName;
     private String description;
