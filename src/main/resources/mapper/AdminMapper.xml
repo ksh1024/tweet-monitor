@@ -31,4 +31,19 @@
         IS_ACTIVE AS recipientIsActive
         FROM RECIPIENTS
     </select>
+
+    <insert id="insertKeyword">
+        INSERT INTO KEYWORDS (KEYWORD_TEXT, IS_ACTIVE)
+        VALUES (#{keywordText}, #{isActive})
+    </insert>
+
+    <insert id="insertRecipient">
+        INSERT INTO RECIPIENTS (TWITTER_USER_ID, TWITTER_SCREEN_NAME, DESCRIPTION, IS_ACTIVE)
+        VALUES (#{twitterUserId}, #{twitterScreenName}, #{description}, #{isActive})
+    </insert>
+
+    <insert id="insertKeywordRecipientMapping">
+        INSERT INTO KEYWORD_RECIPIENT_MAP (KEYWORD_ID, RECIPIENT_ID)
+        VALUES (#{keywordId}, #{recipientId})
+    </insert>
 </mapper>

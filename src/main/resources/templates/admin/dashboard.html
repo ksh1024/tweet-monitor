@@ -46,7 +46,7 @@
         </table>
       </div>
     </div>
-    <button class="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+    <button id="addMappingBtn" class="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
       새 매핑 추가
     </button>
   </div>
@@ -82,7 +82,7 @@
         </tbody>
       </table>
     </div>
-    <button class="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+    <button id="addKeywordBtn" class="mt-4 bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
       새 키워드 추가
     </button>
   </div>
@@ -122,10 +122,81 @@
         </tbody>
       </table>
     </div>
-    <button class="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+    <button id="addRecipientBtn" class="mt-4 bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
       새 수신자 추가
     </button>
   </div>
 </div>
 </body>
 </html>
+<script>
+  $(document).ready(function () {
+    $('#addKeywordBtn').on('click', function () {
+      const keywordText = prompt("추가할 키워드 텍스트를 입력하세요:");
+      const isActive = confirm("이 키워드를 활성화하시겠습니까? (확인: 활성, 취소: 비활성)");
+      if (keywordText) {
+        $.ajax({
+          url: '/admin/keywords',
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify({keywordText: keywordText, isActive: isActive}),
+          success: function (response) {
+            alert("키워드 추가 완료" + response.message);
+            location.reload(); // 페이지 새로고침하여 목록 업데이트 (나중에는 동적 업데이트로 변경)
+          },
+          error: function (xhr, status, error) {
+            alert("키워드 추가 실패: " + xhr.responseText);
+          }
+        });
+      }
+    });
+
+    $('#addRecipientBtn').on('click', function () {
+      const twitterUserId = prompt("추가할 수신자 트위터 User ID를 입력하세요:");
+      const twitterScreenName = prompt("추가할 수신자 트위터 계정명 (@제외)을 입력하세요:");
+      const description = prompt("수신자에 대한 메모를 입력하세요 (선택 사항):");
+      const isActive = confirm("이 수신자를 활성화하시겠습니까? (확인: 활성, 취소: 비활성)");
+
+      if (twitterUserId && twitterScreenName) {
+        $.ajax({
+          url: '/admin/recipients',
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify({
+            twitterUserId: parseInt(twitterUserId), // 숫자로 파싱
+            twitterScreenName: twitterScreenName,
+            description: description,
+            isActive: isActive
+          }),
+          success: function (response) {
+            alert("수신자 추가 완료" + response.message);
+            location.reload();
+          },
+          error: function (xhr, status, error) {
+            alert("수신자 추가 실패: " + xhr.responseText);
+          }
+        });
+      }
+    });
+
+    $('#addMappingBtn').on('click', function () {
+      const keywordId = prompt("매핑할 키워드의 ID를 입력하세요:");
+      const recipientId = prompt("매핑할 수신자의 ID를 입력하세요:");
+      if (keywordId && recipientId) {
+        $.ajax({
+          url: '/admin/mappings',
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify({keywordId: parseInt(keywordId), recipientId: parseInt(recipientId)}),
+          success: function (response) {
+            alert("매핑 추가 완료" + response.message);
+            location.reload();
+          },
+          error: function (xhr, status, error) {
+            alert("매핑 추가 실패: " + xhr.responseText);
+          }
+        });
+      }
+    });
+  });
+</script>

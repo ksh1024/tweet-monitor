@@ -80,7 +80,7 @@ public class TwitterMonitorService {
 
     // DB에서 키워드와 수신자 정보 로딩하여 메모리 맵에 저장
     // @PostConstruct 시점과 주기적 새로고침 스케줄(@Scheduled)에서 호출된다
-    private void loadKeywordsAndRecipients() {
+    public void loadKeywordsAndRecipients() {
         log.info("DB에서 활성화된 키워드 및 수신자 정보 로딩 중...");
         // DB에서 활성화된 키워드와 매핑된 수신자 정보 조회
         List<KeywordRecipientDTO> mappings = keywordMapper.selectActiveKeywordsWithRecipients();
